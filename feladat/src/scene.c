@@ -1,4 +1,5 @@
 #include "scene.h"
+#include "fog.h"
 
 // ================================================================================
 // Thing update functions.
@@ -20,6 +21,22 @@ void camera_update(Thing *thing, Scene *scene)
 
     thing->position = scene->camera->position;
     thing->rotation.z = scene->camera->rotation.z;
+}
+
+void sun_animation(Thing *thing, Scene *scene)
+{
+    (void)scene;
+
+    float time = scene->time;
+    float radius = 50.0f; // Orbit radius
+    float speed = 0.05f;  // Orbit speed multiplier (radians per second)
+
+    float angle = speed * time;
+
+    // Simple circular orbit in the XZ plane, rising and falling in Y slightly
+    thing->position.x = radius * cosf(angle);
+    thing->position.z = radius * sinf(angle);
+    thing->position.y = 5.0f + 3.0f * sinf(angle); // slight up/down oscillation
 }
 
 void exit_game(UI_Element *element, Scene *scene)
@@ -49,9 +66,6 @@ void pre_restart(Scene *scene, Camera *camera, int window_width, int window_heig
 
 void post_restart(Scene *scene)
 {
-    int enemy_count = 0;
-    bool top = false;
-
     printf("Restarting the game.\n");
 
     // Reset the player health.
@@ -64,7 +78,7 @@ void post_restart(Scene *scene)
 
 void init_scene(Scene *scene, Camera *camera, int window_width, int window_height)
 {
-// ================================================================================
+    // ================================================================================
 
     scene->things = new_linked_list();
     init_linked_list(scene->things);
@@ -75,7 +89,7 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
 
     pre_restart(scene, camera, window_width, window_height);
 
-// ================================================================================
+    // ================================================================================
 
     Thing *camera_dummy = add_node(scene->things, new_thing());
     init_thing(camera_dummy, NULL, NULL, -1);
@@ -84,12 +98,27 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
     Thing *floor = add_node(scene->things, new_thing());
     load_thing(floor, "assets/models/grass.obj", "assets/textures/grass_field.jpg");
     floor->position = new_vec3(0.0f, 0.0f, -3.0f);
-    floor->scale=new_vec3(2.0f,2.0f,0.0f);
+    floor->scale = new_vec3(2.0f, 2.0f, 0.0f);
 
     Thing *walls = add_node(scene->things, new_thing());
     load_thing(walls, "assets/models/forest.obj", "assets/textures/forest.jpg");
-    walls->position = new_vec3(0.0f, 0.0f, -5.0f);
-    walls->scale=new_vec3(2.0f,2.0f,5.0f);
+    walls->position = new_vec3(0.0f, 0.0f, -8.0f);
+    walls->scale = new_vec3(2.0f, 2.0f, 3.0f);
+
+    Thing *sun = add_node(scene->things, new_thing());
+    load_thing(sun, "assets/models/sol.obj", "assets/textures/sol.jpg");
+    sun->position = new_vec3(0.0f, 0.0f, 80.0f);
+    sun->scale = new_vec3(2.0f, 2.0f, 2.0f);
+    set_update_function(sun, sun_animation);
+
+    Thing *gun = add_node(scene->things, new_thing());
+    load_thing(gun, "assets/models/Gun.obj", "assets/textures/Gun.png");
+    gun->position = new_vec3(0.4f, -0.4f, -0.2f);
+    gun->scale = new_vec3(1.0f, 1.0f, 1.0f);
+    gun->rotation.x = 70;
+    gun->rotation.y = -160;
+    gun->rotation.z = -20;
+    set_thing_parent(gun, camera_dummy);
 
     // Exit button.
     GLuint exit_button_texture = load_texture("assets/textures/ui/Exit.png");
@@ -99,13 +128,30 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
     ui_exit_button->anchor_y = UI_ANCHOR_CLOSE;
     set_ui_element_mouse_click(ui_exit_button, exit_game);
 
+    //================================================================================
+    // Lights
 
     Light *player_light = add_node(scene->lights, new_light());
     init_light(player_light, 0);
     set_light_position(player_light, vec3_zero());
     set_light_parent(player_light, camera_dummy);
     set_light_color(player_light, new_vec3(0.1f, 0.1f, 0.1f), new_vec3(1.0f, 0.9f, 0.8f), new_vec3(1.0f, 0.9f, 0.8f));
-    player_light->strength = 2.0f;
+    player_light->strength = 1.0f;
+
+    Light *sun_light = add_node(scene->lights, new_light());
+    init_light(sun_light, 1);
+    set_light_position(sun_light, vec3_zero());
+    set_light_parent(sun_light, sun);
+    set_light_color(sun_light, new_vec3(0.1f, 0.1f, 0.1f), new_vec3(1.0f, 0.9f, 0.8f), new_vec3(1.0f, 0.9f, 0.8f));
+    sun_light->strength = 75.0f;
+
+    //================================================================================
+    // Fog settings
+    init_fog();
+    set_fog_color(new_vec3(0.1f, 0.1f, 0.1f));
+    scene->fog_density = 0.25f;
+    set_fog_density(scene->fog_density);
+    glEnable(GL_CULL_FACE);
 }
 
 // ================================================================================
@@ -127,7 +173,6 @@ void handle_jump(Scene *scene, bool is_jumping)
         }
     }
 }
-
 
 void handle_mouse_click(Scene *scene, int x, int y)
 {
