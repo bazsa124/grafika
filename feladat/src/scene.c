@@ -1,5 +1,6 @@
 #include "scene.h"
 #include "fog.h"
+#include <stdlib.h>
 
 // ================================================================================
 // Thing update functions.
@@ -23,6 +24,24 @@ void camera_update(Thing *thing, Scene *scene)
     thing->rotation.z = scene->camera->rotation.z;
 }
 
+void zombie_update(Thing *thing, Scene *scene)
+{
+    // Suppress warnings.
+    (void)scene;
+
+    vec3 base_dir = sub_vec3(scene->camera->position, thing->position);
+    vec3 direction = norm_vec3(base_dir);
+    float angle = radian_to_degree(atan2(direction.y, direction.x));
+    float target_angle = angle + 90.0f;
+    float current_angle = thing->rotation.y;
+    float diff = fmodf(target_angle - current_angle + 540.0f, 360.0f) - 180.0f;
+    float max_diff = 180.0f * scene->delta_time;
+    diff = clamp(diff, -max_diff, max_diff);
+    thing->rotation.y = current_angle + diff;
+}
+
+// ================================================================================
+// Animations
 void sun_animation(Thing *thing, Scene *scene)
 {
     (void)scene;
@@ -37,6 +56,48 @@ void sun_animation(Thing *thing, Scene *scene)
     thing->position.x = radius * cosf(angle);
     thing->position.z = radius * sinf(angle);
     thing->position.y = 5.0f + 3.0f * sinf(angle); // slight up/down oscillation
+}
+
+// ================================================================================
+// Generate enemies
+void generate_enemies(Scene *scene, int number)
+{
+    Thing *zombies[number];
+
+    vec3 cam_pos = scene->camera->position;
+
+    for (int i = 0; i < number; i++)
+    {
+        // Generáljunk távoli, random pozíciót legalább 3 egységre a kamerától
+        vec3 pos;
+        float dist;
+
+        do
+        {
+            // Válasszunk véletlen X/Y értéket -10 és 10 között, Z legyen fix
+            pos.x = ((float)rand() / RAND_MAX) * 20.0f - 10.0f;
+            pos.y = ((float)rand() / RAND_MAX) * 20.0f - 10.0f;
+            pos.z = -2.7f;
+
+            float dx = pos.x - cam_pos.x;
+            float dy = pos.y - cam_pos.y;
+            float dz = pos.z - cam_pos.z;
+
+            dist = sqrtf(dx * dx + dy * dy + dz * dz);
+        } while (dist < 5.0f);
+
+        // Hozzáadás
+        zombies[i] = add_node(scene->things, new_thing());
+        load_thing(zombies[i], "assets/models/zombie.obj", "assets/textures/zombie.tga");
+
+        zombies[i]->position = pos;
+        zombies[i]->scale = new_vec3(1.0f, 1.0f, 1.0f);
+        zombies[i]->rotation.x = 90.0f;
+        set_update_function(zombies[i], zombie_update);
+        zombies[i]->extra_data = (EnemyData *)malloc(sizeof(EnemyData));
+        ((EnemyData *)zombies[i]->extra_data)->health = 100.0f;
+        ((EnemyData *)zombies[i]->extra_data)->state = ENEMY_MOVE;
+    }
 }
 
 void exit_game(UI_Element *element, Scene *scene)
@@ -119,6 +180,9 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
     gun->rotation.y = -160;
     gun->rotation.z = -20;
     set_thing_parent(gun, camera_dummy);
+    // Enemy
+
+    generate_enemies(scene, 20);
 
     // Exit button.
     GLuint exit_button_texture = load_texture("assets/textures/ui/Exit.png");
@@ -147,11 +211,12 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
 
     //================================================================================
     // Fog settings
-    init_fog();
-    set_fog_color(new_vec3(0.1f, 0.1f, 0.1f));
-    scene->fog_density = 0.25f;
-    set_fog_density(scene->fog_density);
-    glEnable(GL_CULL_FACE);
+
+    // init_fog();
+    // set_fog_color(new_vec3(0.1f, 0.1f, 0.1f));
+    // scene->fog_density = 0.25f;
+    // set_fog_density(scene->fog_density);
+    // glEnable(GL_CULL_FACE);
 }
 
 // ================================================================================
