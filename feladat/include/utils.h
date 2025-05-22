@@ -81,4 +81,5 @@ float max(float a, float b);
  */
 float clamp(float value, float mi, float ma);
 
+float dot_vec3(vec3 a, vec3 b);
 #endif /* UTILS_H */

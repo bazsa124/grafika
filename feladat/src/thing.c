@@ -195,3 +195,8 @@ void internal_render_thing(Thing* thing, Scene* scene)
 
     pop_transform(thing);
 }
+
+bool sphere_collision(Sphere a, Sphere b) {
+    float dist = len_vec3(sub_vec3(a.center, b.center));
+    return dist < (a.radius + b.radius);
+}

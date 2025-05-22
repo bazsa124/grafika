@@ -12,9 +12,16 @@
 
 typedef struct Thing Thing;
 typedef struct Scene Scene;
+typedef struct Sphere Sphere;
 
 typedef void (*RenderFunction)(Thing* thing, Scene* scene);
 typedef void (*UpdateFunction)(Thing* thing, Scene* scene);
+
+struct Sphere {
+    vec3 center;
+    float radius;
+};
+
 
 struct Thing
 {
@@ -29,6 +36,8 @@ struct Thing
     bool is_transparent;
     bool is_enabled;
     bool is_visible;
+
+    Sphere bounds;
 
     Thing* parent;
 
@@ -102,5 +111,7 @@ void pop_transform(Thing* thing);
  * A default render function for things.
  */
 void internal_render_thing(Thing* thing, Scene* scene);
+
+bool sphere_collision(Sphere a, Sphere b);
 
 #endif /* THING_H */
