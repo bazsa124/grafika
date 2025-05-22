@@ -74,49 +74,87 @@ void zombie_update(Thing *thing, Scene *scene)
     thing->rotation.y = current_angle + diff;
 
     // Movement
-    if (len_vec3(base_dir) > 1.0f)
+    if (enemy->state == ENEMY_MOVE)
     {
-        vec3 move = mul_vec3(direction, 1.0f * scene->delta_time);
-        bool collision = false;
-
-        // Update intended position and bounds for collision check
-        vec3 new_pos = add_vec3(thing->position, move);
-        Sphere new_bounds = thing->bounds;
-        new_bounds.center = new_pos;
-
-        // Check for collisions with other things
-        Node *node = scene->things->head;
-        while (node != NULL)
+        if (len_vec3(base_dir) > 1.0f)
         {
-            Thing *other = node->data;
-            node = node->next;
+            vec3 move = mul_vec3(direction, 1.0f * scene->delta_time);
+            bool collision = false;
 
-            if (other == thing || other->extra_data == NULL || other->is_visible==false)
+            // Update intended position and bounds for collision check
+            vec3 new_pos = add_vec3(thing->position, move);
+            Sphere new_bounds = thing->bounds;
+            new_bounds.center = new_pos;
+
+            // Check for collisions with other things
+            Node *node = scene->things->head;
+            while (node != NULL)
             {
-                continue;
+                Thing *other = node->data;
+                node = node->next;
+
+                if (other == thing || other->extra_data == NULL || other->is_visible == false)
+                {
+                    continue;
+                }
+
+                float dist = len_vec3(sub_vec3(other->position, new_pos));
+                float min_dist = new_bounds.radius + other->bounds.radius;
+
+                if (dist < min_dist)
+                {
+                    collision = true;
+                    break;
+                }
             }
 
-            float dist = len_vec3(sub_vec3(other->position, new_pos));
-            float min_dist = new_bounds.radius + other->bounds.radius;
-
-            if (dist < min_dist)
+            // Apply move if no collision and not too close to player
+            if (!collision)
             {
-                collision = true;
-                break;
+                thing->position = new_pos;
+                thing->position.z = -2.7f;
+                thing->bounds.center = thing->position;
             }
         }
-
-        // Apply move if no collision and not too close to player
-        if (!collision)
+        else
         {
-            thing->position = new_pos;
-            thing->position.z = -2.7f;
-            thing->bounds.center = thing->position;
+            enemy->timer -= scene->delta_time;
+            if (enemy->timer <= 0.0f)
+            {
+                enemy->state = ENEMY_ATTACK;
+                enemy->timer = 0.5f; // duration of attack state
+            }
         }
     }
-    else
+    else if (enemy->state == ENEMY_DEAD)
     {
+        // TODO: Death animation
         enemy->timer -= scene->delta_time;
+        if (enemy->timer <= 0.0f)
+        {
+            thing->is_enabled = false;
+            thing->is_visible=false;
+        }
+    }
+    else if (enemy->state == ENEMY_PAIN)
+    {
+        // TODO: Hurt animation
+        enemy->timer -= scene->delta_time;
+        if (enemy->timer <= 0.0f)
+        {
+            enemy->state = ENEMY_MOVE;
+            enemy->timer = 0.0f;
+        }
+    }
+    else if (enemy->state == ENEMY_ATTACK)
+    {
+        // TODO:Attack animation
+
+        enemy->timer -= scene->delta_time;
+        if (enemy->timer <= 0.0f)
+        {
+            enemy->state = ENEMY_MOVE;
+        }
     }
 }
 // ================================================================================
@@ -357,7 +395,7 @@ void handle_attack(Scene *scene)
         Thing *other = node->data;
         node = node->next;
 
-        if (other->extra_data == NULL || other->is_visible==false)
+        if (other->extra_data == NULL || other->is_visible == false)
             continue;
 
         vec3 to_enemy = sub_vec3(other->position, camera_pos);
@@ -378,15 +416,15 @@ void handle_attack(Scene *scene)
     if (closest_enemy != NULL)
     {
         EnemyData *enemy = (EnemyData *)closest_enemy->extra_data;
-        enemy->health -= 100.0f;
+        enemy->health -= 50.0f;
 
         printf("[DEBUG] HIT closest enemy at (%.2f, %.2f)! Health now: %d\n",
                closest_enemy->position.x, closest_enemy->position.y, enemy->health);
 
         if (enemy->health <= 0.0f)
         {
-            closest_enemy->is_visible = false;
             enemy->state = ENEMY_DEAD;
+            enemy->timer = 0.1f;
             printf("[DEBUG] Enemy died.\n");
         }
         else
@@ -401,7 +439,6 @@ void handle_attack(Scene *scene)
         printf("[DEBUG] No enemy hit.\n");
     }
 }
-
 
 void handle_scene_events(Scene *scene, SDL_Event *event)
 {
