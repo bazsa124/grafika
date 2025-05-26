@@ -245,8 +245,8 @@ void gun_update(Thing *gun, Scene *scene)
         GunState *state = &((GunData *)gun->extra_data)->state;
         static float anim_timer = 0.0f;
 
-        const float shoot_duration = 0.5f;
-        const float reload_duration = 1.2f;
+        const float shoot_duration = 1.0f;
+        const float reload_duration = 3.0f;
 
         // Def rots and pos
         const vec3 default_pos = {0.4f, -0.4f, -0.2f};

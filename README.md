@@ -1,4 +1,4 @@
-# 🧟‍♂️ 3D Zombis Lövöldözős Játék – Grafika beadandó (2024)
+# 🧟‍♂️ 3D Zombis Lövöldözős Játék – Grafika beadandó (2025)
 
 ### Készítette: **Csákó Balázs**  
 ### Modellek: **Kiss Konrád Soma, Csákó Balázs**
@@ -7,14 +7,14 @@ Ez a projekt egy egyetemi grafika beadandó keretében készült. A cél egy 3D-
 
 ## 🕹️ Játékmenet összefoglaló
 
-A játékos egy zárt pályán mozog, miközben folyamatosan újabb zombik jelennek meg. A cél a túlélés és minél több ellenség legyőzése. A játék akkor ér véget, ha a játékos életereje 0-ra csökken.
+A játékos egy zárt pályán mozog, zombik követik. A cél a túlélés és az ellenségek legyőzése. A játék akkor ér véget, ha a játékos életereje 0-ra csökken vagy ha minden zombi meghalt.
 
 A játék végi üzenet:  
-**„Meghaltál. Legyőzött ellenfelek száma: <szám>”**
+**„You died.”/„Victory”**
 
 ## ⚙️ Alapfunkciók
 
-- **Kamera:** Egérmozgással irányítható (nem szükséges kattintás)
+- **Kamera:** Egérmozgással irányítható
 - **Mozgás:** WASD billentyűkkel
 - **Objektumkezelés:** Minden játékelem `Thing` struktúrában tárolva, láncolt listában
 - **Animáció:** Procedurálisan generált mozgás szinuszhullámok segítségével
@@ -25,21 +25,23 @@ A játék végi üzenet:
 
 - **Zombi AI:**
   - Zombik automatikusan a játékos felé mozognak
-  - Ütközéskor sebzést okoznak
+  - Ütközéskor animáció, sebzést okoznak
   - Sebződés után animációt játszanak le, halál esetén eltűnnek
 
 - **Lőfegyverhasználat:**
   - A játékos csak lőfegyvert használhat
-  - Lőszerkészlet a képernyő **bal alsó sarkában** látható
+  - Lőszerkészlet a képernyő **jobb alsó sarkában** látható
+  - Lövés és újratöltés animációk
 
 - **Ellenségek megjelenése:**
-  - A zombik **folyamatosan és végtelen mennyiségben** jelennek meg
+  - Egyszer 20, a játékos körül kör véletlen helyen
 
 - **Felhasználói felület:**
-  - **Életerő sáv**
-  - **Lőszer számláló** – bal alsó sarok
-  - **Irányítási menü** – jobb felső sarok
-  - **Játék végi statisztika:** Meghaltál + legyőzött zombik száma
+  - **Életerő sáv** - lent középen
+  - **Lőszer számláló** – jobb alsó sarok
+  - **Help menü és exit** – jobb felső sarok
+  - **Játék végi statisztika:** Meghaltál / Nyertél
+  - **Környezeti változók:** Help-ben jélzett gomb kombinációkkal
 
 - **Köd:** A játéktérben állítható sűrűségű köd biztosít atmoszférát
 
