@@ -1,6 +1,81 @@
 #include "scene.h"
 #include "fog.h"
 #include <stdlib.h>
+// Enviroment
+void toggle_help(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    UI_Element *help = get_node(scene->ui_elements, 0);
+    help->is_visible = !help->is_visible;
+}
+
+void exit_game(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+    (void)scene;
+
+    exit(0);
+}
+
+void increase_camera_speed(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    scene->camera->base_speed += 0.5f;
+}
+
+void decrease_camera_speed(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    if (scene->camera->base_speed > 1.01f)
+        scene->camera->base_speed -= 0.5f;
+}
+
+void increase_light_strength(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    Light *light = get_node(scene->lights, 0);
+    light->strength += 1.0f;
+}
+
+void decrease_light_strength(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    Light *light = get_node(scene->lights, 0);
+    if (light->strength > 1.01f)
+        light->strength -= 1.0f;
+}
+
+void increase_fog_density(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    scene->fog_density += 0.1f;
+    set_fog_density(scene->fog_density);
+}
+
+void decrease_fog_density(UI_Element *element, Scene *scene)
+{
+    // Suppress warnings.
+    (void)element;
+
+    if (scene->fog_density > 0.01f)
+    {
+        scene->fog_density -= 0.1f;
+        set_fog_density(scene->fog_density);
+    }
+}
 
 // ================================================================================
 // Thing update functions.
@@ -54,49 +129,44 @@ void camera_update(Thing *thing, Scene *scene)
     thing->rotation.z = scene->camera->rotation.z;
     thing->bounds.center = thing->position;
 }
-
 void zombie_update(Thing *thing, Scene *scene)
 {
-    // Suppress warnings.
-    (void)scene;
-
     EnemyData *enemy = (EnemyData *)thing->extra_data;
 
-    // Look at camera
+    // Calculate direction and angle to camera
     vec3 base_dir = sub_vec3(scene->camera->position, thing->position);
     vec3 direction = norm_vec3(base_dir);
     float angle = radian_to_degree(atan2f(direction.y, direction.x));
     float target_angle = angle + 90.0f;
     float current_angle = thing->rotation.y;
+
+    // Smooth angle adjustment
     float diff = fmodf(target_angle - current_angle + 540.0f, 360.0f) - 180.0f;
     float max_diff = 180.0f * scene->delta_time;
     diff = clamp(diff, -max_diff, max_diff);
     thing->rotation.y = current_angle + diff;
 
-    // Movement
-    if (enemy->state == ENEMY_MOVE)
+    // State machine logic
+    switch (enemy->state)
     {
-        if (len_vec3(base_dir) > 1.0f)
+    case ENEMY_MOVE:
+    {
+        if (len_vec3(base_dir) > 3.0f)
         {
             vec3 move = mul_vec3(direction, 1.0f * scene->delta_time);
             bool collision = false;
-
-            // Update intended position and bounds for collision check
             vec3 new_pos = add_vec3(thing->position, move);
             Sphere new_bounds = thing->bounds;
             new_bounds.center = new_pos;
 
-            // Check for collisions with other things
             Node *node = scene->things->head;
             while (node != NULL)
             {
                 Thing *other = node->data;
                 node = node->next;
 
-                if (other == thing || other->extra_data == NULL || other->is_visible == false)
-                {
+                if (other == thing || other->extra_data == NULL || !other->is_visible)
                     continue;
-                }
 
                 float dist = len_vec3(sub_vec3(other->position, new_pos));
                 float min_dist = new_bounds.radius + other->bounds.radius;
@@ -108,7 +178,6 @@ void zombie_update(Thing *thing, Scene *scene)
                 }
             }
 
-            // Apply move if no collision and not too close to player
             if (!collision)
             {
                 thing->position = new_pos;
@@ -118,46 +187,88 @@ void zombie_update(Thing *thing, Scene *scene)
         }
         else
         {
-            enemy->timer -= scene->delta_time;
-            if (enemy->timer <= 0.0f)
+            scene->player_health -= 10.0f;
+            enemy->state = ENEMY_ATTACK;
+            enemy->timer = 0.5f;
+
+            if (scene->player_health < 0.0f)
             {
-                enemy->state = ENEMY_ATTACK;
-                enemy->timer = 0.5f; // duration of attack state
+                scene->player_health = 0.0f;
+                scene->game_over_text->is_visible = true;
+                scene->camera->base_speed = 0.0f;
+                scene->attack_timer = -1.0f;
             }
+
+            scene->health_bar->size.x = scene->player_health * 2.56f;
         }
+        break;
     }
-    else if (enemy->state == ENEMY_DEAD)
+
+    case ENEMY_ATTACK:
     {
-        // TODO: Death animation
-        enemy->timer -= scene->delta_time;
-        if (enemy->timer <= 0.0f)
-        {
-            thing->is_enabled = false;
-            thing->is_visible=false;
-        }
-    }
-    else if (enemy->state == ENEMY_PAIN)
-    {
-        // TODO: Hurt animation
-        enemy->timer -= scene->delta_time;
-        if (enemy->timer <= 0.0f)
-        {
-            enemy->state = ENEMY_MOVE;
-            enemy->timer = 0.0f;
-        }
-    }
-    else if (enemy->state == ENEMY_ATTACK)
-    {
-        // TODO:Attack animation
+
+        thing->rotation.y = target_angle + 15.0f * sinf(scene->time * 2.0f);
 
         enemy->timer -= scene->delta_time;
         if (enemy->timer <= 0.0f)
         {
             enemy->state = ENEMY_MOVE;
+
+            enemy->timer = 0.0f;
+            thing->rotation.y = 0.0f;
         }
+        break;
+    }
+
+    case ENEMY_PAIN:
+    {
+        float radians = degree_to_radian(thing->rotation.y - 90.0f);
+        vec3 backward = new_vec3(cosf(radians), sinf(radians), 0.0f);
+        vec3 move = mul_vec3(backward, -2.0f * scene->delta_time);
+
+        thing->position = add_vec3(thing->position, move);
+        thing->material.ambient = new_vec3(1.0f, 0.0f, 0.0f);
+
+        enemy->timer -= scene->delta_time;
+        if (enemy->timer <= 0.0f)
+        {
+            enemy->state = ENEMY_MOVE;
+            enemy->timer = 0.0f;
+            thing->material.ambient = new_vec3(1.0f, 1.0f, 1.0f); // reset color
+        }
+        break;
+    }
+
+    case ENEMY_DEAD:
+{
+    float target_angle = 90.0f;
+    float current_angle = thing->rotation.z;
+    
+    float diff = fmodf(target_angle - current_angle + 540.0f, 360.0f) - 180.0f;
+
+    float rotation_speed = 90.0f; 
+
+    float max_step = rotation_speed * scene->delta_time;
+    if (fabsf(diff) < max_step)
+    {
+        thing->rotation.z = target_angle;
+        thing->is_enabled = false;
+        thing->is_visible = false;
+    }
+    else
+    {
+        float step = (diff > 0.0f) ? max_step : -max_step;
+        thing->rotation.z += step;
+    }
+
+    enemy->timer -= scene->delta_time;
+    break;
+}
+
+    default:
+        break;
     }
 }
-// ================================================================================
 // Animations
 void sun_animation(Thing *thing, Scene *scene)
 {
@@ -220,13 +331,6 @@ void generate_enemies(Scene *scene, int number)
     }
 }
 
-void exit_game(UI_Element *element, Scene *scene)
-{
-    (void)element;
-    (void)scene;
-
-    exit(0);
-}
 void pre_restart(Scene *scene, Camera *camera, int window_width, int window_height)
 {
     camera->base_speed = 2.0f;
@@ -242,7 +346,7 @@ void pre_restart(Scene *scene, Camera *camera, int window_width, int window_heig
     scene->player_health = 100.0f;
     scene->attack_timer = 0.0f;
 
-    scene->enemy_count = 3;
+    scene->enemy_count = 20;
 }
 
 void post_restart(Scene *scene)
@@ -306,6 +410,12 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
 
     generate_enemies(scene, 20);
 
+    // Help
+    GLuint help_text = load_texture("assets/textures/ui/Help.png");
+    UI_Element *ui_help = add_node(scene->ui_elements, new_ui_element());
+    init_ui_element(ui_help, new_vec3(0.0f, 0.0f, 0.0f), new_vec3(1280.0f, 720.0f, 1.0f), help_text);
+    ui_help->is_visible = false;
+
     // Exit button.
     GLuint exit_button_texture = load_texture("assets/textures/ui/Exit.png");
     UI_Element *ui_exit_button = add_node(scene->ui_elements, new_ui_element());
@@ -313,6 +423,29 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
     ui_exit_button->anchor_x = UI_ANCHOR_FAR;
     ui_exit_button->anchor_y = UI_ANCHOR_CLOSE;
     set_ui_element_mouse_click(ui_exit_button, exit_game);
+
+    GLuint help_button_texture = load_texture("assets/textures/ui/help_icon.png");
+    UI_Element *ui_help_button = add_node(scene->ui_elements, new_ui_element());
+    init_ui_element(ui_help_button, new_vec3(32.0f, 32.0f, 0.0f), new_vec3(64.0f, 64.0f, 1.0f), help_button_texture);
+    ui_help_button->anchor_x = UI_ANCHOR_CLOSE;
+    ui_help_button->anchor_y = UI_ANCHOR_CLOSE;
+    set_ui_element_mouse_click(ui_help_button, toggle_help);
+
+    GLuint health_bar_texture = load_texture("assets/textures/ui/Health.png");
+    scene->health_bar = add_node(scene->ui_elements, new_ui_element());
+    init_ui_element(scene->health_bar, new_vec3(0.0f, 32.0f, 0.0f), new_vec3(256.0f, 32.0f, 1.0f), health_bar_texture);
+    scene->health_bar->anchor_x = UI_ANCHOR_CENTER;
+    scene->health_bar->anchor_y = UI_ANCHOR_FAR;
+
+    GLuint end_text = load_texture("assets/textures/ui/end.jpg");
+    scene->game_over_text = add_node(scene->ui_elements, new_ui_element());
+    init_ui_element(scene->game_over_text, new_vec3(0.0f, 0.0f, 0.0f), new_vec3(1280.0f, 720.0f, 1.0f), end_text);
+    scene->game_over_text->is_visible = false;
+
+    GLuint victory_texture = load_texture("assets/textures/ui/win.jpg");
+    scene->victory_text = add_node(scene->ui_elements, new_ui_element());
+    init_ui_element(scene->victory_text, new_vec3(0.0f, 0.0f, 0.0f), new_vec3(1280.0f, 720.0f, 1.0f), victory_texture);
+    scene->victory_text->is_visible = false;
 
     //================================================================================
     // Lights
@@ -334,11 +467,11 @@ void init_scene(Scene *scene, Camera *camera, int window_width, int window_heigh
     //================================================================================
     // Fog settings
 
-    // init_fog();
-    // set_fog_color(new_vec3(0.1f, 0.1f, 0.1f));
-    // scene->fog_density = 0.25f;
-    // set_fog_density(scene->fog_density);
-    // glEnable(GL_CULL_FACE);
+    init_fog();
+    set_fog_color(new_vec3(0.1f, 0.1f, 0.1f));
+    scene->fog_density = 0.25f;
+    set_fog_density(scene->fog_density);
+    glEnable(GL_CULL_FACE);
 }
 
 // ================================================================================
@@ -423,9 +556,14 @@ void handle_attack(Scene *scene)
 
         if (enemy->health <= 0.0f)
         {
+            scene->enemy_count--;
             enemy->state = ENEMY_DEAD;
             enemy->timer = 0.1f;
-            printf("[DEBUG] Enemy died.\n");
+            printf("[DEBUG] Enemy died. Remaining: %d\n",scene->enemy_count);
+            if (scene->enemy_count == 0)
+            {
+                scene->victory_text->is_visible = true;
+            }
         }
         else
         {
@@ -456,17 +594,54 @@ void handle_scene_events(Scene *scene, SDL_Event *event)
     }
     if (event->type == SDL_KEYDOWN)
     {
-        switch (event->key.keysym.scancode)
+        const Uint8 *keyboard_state = SDL_GetKeyboardState(NULL);
+        SDL_Scancode key = event->key.keysym.scancode;
+
+        if ((key == SDL_SCANCODE_EQUALS || key == SDL_SCANCODE_KP_PLUS) && keyboard_state[SDL_SCANCODE_C])
         {
-        case SDL_SCANCODE_SPACE:
-            handle_jump(scene, true);
-            break;
-        case SDL_SCANCODE_R:
-            pre_restart(scene, scene->camera, scene->window_width, scene->window_height);
-            post_restart(scene);
-            break;
-        default:
-            break;
+            increase_camera_speed(NULL, scene);
+        }
+        else if ((key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) && keyboard_state[SDL_SCANCODE_C])
+        {
+            decrease_camera_speed(NULL, scene);
+        }
+        else if ((key == SDL_SCANCODE_EQUALS || key == SDL_SCANCODE_KP_PLUS) && keyboard_state[SDL_SCANCODE_L])
+        {
+            increase_light_strength(NULL, scene);
+        }
+        else if ((key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) && keyboard_state[SDL_SCANCODE_L])
+        {
+            decrease_light_strength(NULL, scene);
+        }
+        else if ((key == SDL_SCANCODE_EQUALS || key == SDL_SCANCODE_KP_PLUS) && keyboard_state[SDL_SCANCODE_F])
+        {
+            increase_fog_density(NULL, scene);
+        }
+        else if ((key == SDL_SCANCODE_MINUS || key == SDL_SCANCODE_KP_MINUS) && keyboard_state[SDL_SCANCODE_F])
+        {
+            decrease_fog_density(NULL, scene);
+        }
+        else
+        {
+            // Other key handling here, e.g.:
+            switch (key)
+            {
+            case SDL_SCANCODE_SPACE:
+                handle_jump(scene, true);
+                break;
+            case SDL_SCANCODE_R:
+                pre_restart(scene, scene->camera, scene->window_width, scene->window_height);
+                post_restart(scene);
+                break;
+            case SDL_SCANCODE_H:
+                toggle_help(NULL, scene);
+                break;
+            case SDL_SCANCODE_ESCAPE:
+                exit_game(NULL, scene);
+                break;
+            default:
+                break;
+            }
         }
     }
 }

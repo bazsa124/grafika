@@ -9,7 +9,7 @@ Ke 0.000000 0.000000 0.000000
 Ni 1.000000
 d 1.000000
 illum 1
-map_Kd C:/Users/tiem2/Desktop/Mappák/School/Grafika/Repo/grafika/feladat/assets/textures/Gun.png
+map_Kd **/textures/Gun.png
 
 newmtl Gun_NONE
 Ns 96.078453
