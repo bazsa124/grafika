@@ -2,10 +2,11 @@
 #define SCENE_H
 
 #include "camera.h"
-#include "thing.h"
+#include "object.h"
 #include "light.h"
 #include "linkedlist.h"
 #include "ui.h"
+#include "enviroment.h"
 
 #include <SDL2/SDL.h>
 
@@ -16,6 +17,18 @@ typedef enum EnemyState
     ENEMY_PAIN,
     ENEMY_DEAD
 } EnemyState;
+
+typedef enum GunState
+{
+    RELOAD,
+    STANDBY,
+    SHOOT
+}GunState;
+
+typedef struct GunData{
+    GunState state;
+    UI_Element *counters[7];
+} GunData;
 
 typedef struct EnemyData
 {
@@ -33,6 +46,7 @@ struct Scene
     LinkedList *lights;
     LinkedList *ui_elements;
     Camera *camera;
+    Thing* gun;
 
     int window_width;
     int window_height;
@@ -47,6 +61,7 @@ struct Scene
     float attack_timer;
     float jump_speed;
     int enemy_count;
+    int bullets;
 };
 
 /**

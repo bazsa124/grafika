@@ -8,7 +8,7 @@ ALL_OBJ_SRC = $(wildcard $(OBJ_SRC_DIR)*.c)
 
 LIBS = -lmingw32 -lSDL2main -lSDL2 -lSDL2_image -lopengl32 -lm
 
-OUTPUT = -o beadando.exe
+OUTPUT = -o game.exe
 
 WARNINGS = -Wall -Wextra -Wpedantic -Wno-unknown-pragmas
 

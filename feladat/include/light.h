@@ -1,7 +1,7 @@
 #ifndef LIGHT_H
 #define LIGHT_H
 
-#include "thing.h"
+#include "object.h"
 
 typedef struct Light Light;
 

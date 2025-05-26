@@ -76,7 +76,6 @@ void init_app(App *app, int argc, char *argv[])
 
     init_camera(&(app->camera));
     init_scene(&(app->scene), &(app->camera), app->window_width, app->window_height);
-
     app->is_running = true;
 }
 
